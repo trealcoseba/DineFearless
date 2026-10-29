@@ -1,0 +1,19 @@
+@using DineFearless.Services
+@inject ModalService Modals
+
+<div class="mt-8 rounded-2xl bg-white border border-slate-200 p-5 shadow-xs flex items-center justify-between">
+    <div class="flex items-center gap-8">
+        <div class="flex items-center gap-2 text-sm font-bold text-slate-900">
+            <span>⌂</span> A little more kitchen confidence
+        </div>
+        <div class="flex items-center gap-6 text-xs text-slate-600 font-medium">
+            <span class="flex items-center gap-1.5 text-emerald-700">✓ Dedicated gluten-free fryer</span>
+            <span class="flex items-center gap-1.5 text-emerald-700">✓ Separate prep table</span>
+            <span class="flex items-center gap-1.5 text-emerald-700">✓ Allergy-trained team</span>
+        </div>
+    </div>
+    <button @onclick="() => Modals.Open(ActiveModal.KitchenProtocols)" 
+            class="text-xs font-bold text-emerald-800 hover:text-emerald-900 hover:underline cursor-pointer">
+        View protocols ↗
+    </button>
+</div>
