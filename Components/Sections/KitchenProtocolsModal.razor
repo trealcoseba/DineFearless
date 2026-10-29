@@ -1,0 +1,142 @@
+@using DineFearless.Services
+@inject ModalService Modals
+@implements IDisposable
+
+@if (Modals.CurrentModal == ActiveModal.KitchenProtocols || Modals.CurrentModal == ActiveModal.SafetyLabels)
+{
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-fade-in">
+        <div class="bg-white rounded-3xl max-w-xl w-full p-6 shadow-2xl border border-slate-200">
+            
+            <!-- Modal Header -->
+            <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div class="flex items-center gap-2">
+                    <span class="text-emerald-700 text-xl font-bold">🛡</span>
+                    <h3 class="font-bold text-lg text-slate-900">Transparency & Kitchen Standards</h3>
+                </div>
+                <button @onclick="Modals.Close" class="text-slate-400 hover:text-slate-600 font-bold text-lg cursor-pointer">✕</button>
+            </div>
+
+            <!-- Tab Switcher -->
+            <div class="flex gap-2 p-1 bg-slate-100 rounded-xl my-4">
+                <button @onclick='() => _activeTab = "Labels"' 
+                        class="flex-1 py-2 text-xs font-bold rounded-lg transition cursor-pointer @(_activeTab == "Labels" ? "bg-white shadow-2xs text-slate-900" : "text-slate-500 hover:text-slate-900")">
+                    Safety Labels Explained
+                </button>
+                <button @onclick='() => _activeTab = "Protocols"' 
+                        class="flex-1 py-2 text-xs font-bold rounded-lg transition cursor-pointer @(_activeTab == "Protocols" ? "bg-white shadow-2xs text-slate-900" : "text-slate-500 hover:text-slate-900")">
+                    Verified Kitchen Protocols
+                </button>
+            </div>
+
+            <!-- Tab 1: Safety Labels -->
+            @if (_activeTab == "Labels")
+            {
+                <div class="space-y-3 py-1">
+                    <div class="p-3.5 rounded-2xl bg-emerald-50/70 border border-emerald-200/80">
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-white text-emerald-800 border border-emerald-200">
+                                ● Safe
+                            </span>
+                            <span class="text-xs font-bold text-emerald-950">Naturally Safe</span>
+                        </div>
+                        <p class="text-xs text-emerald-800 leading-relaxed">
+                            Zero direct or trace ingredients matching your active allergies. Cooked with verified dedicated equipment.
+                        </p>
+                    </div>
+
+                    <div class="p-3.5 rounded-2xl bg-amber-50/70 border border-amber-200/80">
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-200">
+                                ▲ Modifiable
+                            </span>
+                            <span class="text-xs font-bold text-amber-950">Safe with Adjustments</span>
+                        </div>
+                        <p class="text-xs text-amber-800 leading-relaxed">
+                            Contains allergens, but the chef has approved safe omissions (e.g., "Omit butter and parmesan").
+                        </p>
+                    </div>
+
+                    <div class="p-3.5 rounded-2xl bg-rose-50/70 border border-rose-200/80">
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-200">
+                                ✕ Contains Allergen
+                            </span>
+                            <span class="text-xs font-bold text-rose-950">Avoid for your profile</span>
+                        </div>
+                        <p class="text-xs text-rose-800 leading-relaxed">
+                            Direct allergen match with no safe substitution, or cooked in a shared unverified fryer.
+                        </p>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="space-y-3 py-1">
+                    <div class="p-3.5 rounded-2xl bg-slate-50 border border-slate-200">
+                        <div class="font-bold text-xs text-slate-900 flex items-center justify-between">
+                            <span>Dedicated Gluten-Free Fryer</span>
+                            <span class="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-md font-bold">VERIFIED</span>
+                        </div>
+                        <p class="mt-1 text-xs text-slate-500">
+                            Fryer #2 is reserved exclusively for corn tortillas and fries. Never exposed to wheat flour batters.
+                        </p>
+                    </div>
+
+                    <div class="p-3.5 rounded-2xl bg-slate-50 border border-slate-200">
+                        <div class="font-bold text-xs text-slate-900 flex items-center justify-between">
+                            <span>Separated Allergen Prep Table</span>
+                            <span class="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-md font-bold">VERIFIED</span>
+                        </div>
+                        <p class="mt-1 text-xs text-slate-500">
+                            Dedicated purple cutting boards and sanitized utensils are stored in a sealed allergen station.
+                        </p>
+                    </div>
+
+                    <div class="p-3.5 rounded-2xl bg-slate-50 border border-slate-200">
+                        <div class="font-bold text-xs text-slate-900 flex items-center justify-between">
+                            <span>Annual Staff Allergy Audit</span>
+                            <span class="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-md font-bold">AUDITED 2026</span>
+                        </div>
+                        <p class="mt-1 text-xs text-slate-500">
+                            Kitchen and waitstaff hold certified ServSafe Allergens accreditation.
+                        </p>
+                    </div>
+                </div>
+            }
+
+            <!-- Close Button -->
+            <button @onclick="Modals.Close" 
+                    class="w-full mt-5 py-3 bg-emerald-800 text-white font-bold text-xs rounded-xl hover:bg-emerald-900 transition cursor-pointer shadow-xs">
+                Close Guide
+            </button>
+        </div>
+    </div>
+}
+
+@code {
+    private string _activeTab = "Labels";
+
+    protected override void OnInitialized()
+    {
+        Modals.OnModalChanged += HandleModalState;
+    }
+
+    public void Dispose()
+    {
+        Modals.OnModalChanged -= HandleModalState;
+    }
+
+    private void HandleModalState()
+    {
+        if (Modals.CurrentModal == ActiveModal.SafetyLabels)
+        {
+            _activeTab = "Labels";
+        }
+        else if (Modals.CurrentModal == ActiveModal.KitchenProtocols)
+        {
+            _activeTab = "Protocols";
+        }
+
+        StateHasChanged();
+    }
+}

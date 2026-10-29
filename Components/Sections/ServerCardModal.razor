@@ -1,0 +1,96 @@
+@using DineFearless.Services
+@inject ModalService Modals
+@inject UserDietaryProfile Profile
+@inject IJSRuntime JS
+@implements IDisposable
+
+@if (Modals.CurrentModal == ActiveModal.ServerCardPrint)
+{
+    <div class="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in">
+        <div class="bg-white rounded-3xl max-w-xl w-full p-8 shadow-2xl border-4 border-rose-500 text-slate-900">
+            <!-- Modal Header -->
+            <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+                <div class="flex items-center gap-2">
+                    <span class="text-xl">📋</span>
+                    <h2 class="text-lg font-black tracking-tight uppercase">Medical Allergen Notice for Waitstaff</h2>
+                </div>
+                <button @onclick="Modals.Close" class="text-slate-400 hover:text-slate-600 font-bold text-xl cursor-pointer">✕</button>
+            </div>
+
+            <!-- Language Switcher Tabs -->
+            <div class="mt-4 flex gap-1 p-1 bg-slate-100 rounded-xl">
+                <button @onclick='() => _activeLang = "EN"' class="flex-1 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer @(_activeLang == "EN" ? "bg-white shadow-2xs text-slate-900" : "text-slate-500")">English</button>
+                <button @onclick='() => _activeLang = "ES"' class="flex-1 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer @(_activeLang == "ES" ? "bg-white shadow-2xs text-slate-900" : "text-slate-500")">Español</button>
+                <button @onclick='() => _activeLang = "TL"' class="flex-1 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer @(_activeLang == "TL" ? "bg-white shadow-2xs text-slate-900" : "text-slate-500")">Tagalog</button>
+            </div>
+
+            <!-- Server Card Content -->
+            <div class="my-6 p-6 rounded-2xl bg-rose-50/70 border border-rose-200 text-center">
+                <div class="inline-block bg-rose-600 text-white text-[11px] font-black uppercase tracking-widest px-3 py-1 rounded-full mb-3">
+                    Strict Sensitivity Warning
+                </div>
+                
+                <h3 class="text-2xl font-black text-rose-950">
+                    @GetTranslatedHeadline()
+                </h3>
+
+                <p class="mt-3 text-sm text-rose-900 font-medium leading-relaxed">
+                    @GetTranslatedBody()
+                </p>
+            </div>
+
+            <!-- Kitchen Protocol Requirements -->
+            <div class="space-y-2 text-xs font-semibold text-slate-700 p-4 bg-slate-50 rounded-2xl mb-6">
+                <div class="flex items-center gap-2 text-emerald-800">
+                    <span>✓</span> Clean pans and dedicated prep surfaces required
+                </div>
+                <div class="flex items-center gap-2 text-emerald-800">
+                    <span>✓</span> Dedicated fryer only (no shared oil)
+                </div>
+                <div class="flex items-center gap-2 text-emerald-800">
+                    <span>✓</span> Chef confirmation before table delivery
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="flex items-center gap-3">
+                <button @onclick="Modals.Close" class="flex-1 py-3 border border-slate-200 text-slate-700 font-bold text-xs rounded-xl hover:bg-slate-50 cursor-pointer">
+                    Dismiss
+                </button>
+                <button @onclick="TriggerPrint" class="flex-1 py-3 bg-emerald-800 hover:bg-emerald-900 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 shadow-xs cursor-pointer">
+                    <span>🖨</span> Print / Save to Phone
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private string _activeLang = "EN";
+
+    protected override void OnInitialized() => Modals.OnModalChanged += StateHasChanged;
+    public void Dispose() => Modals.OnModalChanged -= StateHasChanged;
+
+    private string GetTranslatedHeadline()
+    {
+        var allergens = string.Join(" & ", Profile.ActiveAllergens);
+        return _activeLang switch
+        {
+            "ES" => $"Tengo una alergia severa a {allergens}.",
+            "TL" => $"Mayroon akong malubhang allergy sa {allergens}.",
+            _ => $"I have a severe allergy to {allergens}."
+        };
+    }
+
+    private string GetTranslatedBody() => _activeLang switch
+    {
+        "ES" => "Por favor, evite cualquier contacto cruzado con aceites, tablas de cortar o utensilios compartidos. ¡Gracias!",
+        "TL" => "Pakisuyo po na iwasan ang cross-contamination sa mantika, sangkalan, at gamit sa pagluluto. Maraming salamat po!",
+        _ => "Please prevent cross-contact with shared cooking oils, utensils, and cutting boards. Thank you!"
+    };
+
+    private async Task TriggerPrint()
+    {
+        await JS.InvokeVoidAsync("window.print");
+    }
+}

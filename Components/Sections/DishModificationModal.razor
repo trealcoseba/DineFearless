@@ -1,0 +1,108 @@
+@using DineFearless.Models
+@using DineFearless.Services
+@inject ModalService Modals
+@inject SafePlateService PlateService
+@inject UserDietaryProfile Profile
+@implements IDisposable
+
+@if (Modals.CurrentModal == ActiveModal.DishModification && Modals.SelectedDish is not null)
+{
+    var dish = Modals.SelectedDish;
+    <div class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in">
+        <div class="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200">
+            <!-- Modal Header -->
+            <div class="flex items-start justify-between pb-4 border-b border-slate-100">
+                <div>
+                    <span class="text-[10px] font-extrabold uppercase tracking-widest text-amber-700 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-200">
+                        Kitchen Modification
+                    </span>
+                    <h3 class="text-xl font-bold text-slate-900 mt-2">@dish.Name</h3>
+                    <p class="text-xs text-slate-500">Select omissions to remove matching allergens from your dish.</p>
+                </div>
+                <button @onclick="Modals.Close" class="text-slate-400 hover:text-slate-600 text-lg font-bold cursor-pointer">✕</button>
+            </div>
+
+            <!-- Modifications Checklist -->
+            <div class="py-5 space-y-3">
+                <span class="text-xs uppercase font-bold text-slate-400 tracking-wider">Chef Adjustments</span>
+                @foreach (var mod in dish.GetModifications())
+                {
+                    var isSelected = _selectedMods.Contains(mod);
+                    <div @onclick="() => ToggleMod(mod)"
+                         class="flex items-center justify-between p-3.5 rounded-2xl border transition cursor-pointer select-none @(isSelected ? "bg-emerald-50/70 border-emerald-300" : "bg-slate-50 border-slate-200 hover:bg-slate-100")">
+                        <div class="flex items-center gap-3">
+                            <div class="w-5 h-5 rounded-md flex items-center justify-center border transition @(isSelected ? "bg-emerald-700 border-emerald-700 text-white" : "border-slate-300 bg-white")">
+                                @if (isSelected) { <span class="text-xs font-bold">✓</span> }
+                            </div>
+                            <span class="text-sm font-semibold @(isSelected ? "text-emerald-950" : "text-slate-700")">@mod</span>
+                        </div>
+                        <span class="text-[11px] font-bold text-emerald-700">Removes Allergen</span>
+                    </div>
+                }
+            </div>
+
+            <!-- Dynamic Re-evaluated Notice -->
+            <div class="rounded-2xl p-4 @(_selectedMods.Count == dish.GetModifications().Count ? "bg-emerald-50 border border-emerald-200 text-emerald-900" : "bg-amber-50 border border-amber-200 text-amber-900")">
+                <div class="text-xs font-bold flex items-center gap-2">
+                    <span>@(_selectedMods.Count == dish.GetModifications().Count ? "✓ Safe to consume with requested omissions" : "⚠ Further omissions recommended to guarantee safety")</span>
+                </div>
+            </div>
+
+            <!-- Modal Action Buttons -->
+            <div class="mt-6 flex items-center justify-end gap-3">
+                <button @onclick="Modals.Close" class="px-5 py-2.5 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-100 cursor-pointer">
+                    Cancel
+                </button>
+                <button @onclick="ConfirmCustomPlate" class="px-5 py-2.5 rounded-xl text-xs font-bold bg-emerald-800 hover:bg-emerald-900 text-white shadow-xs cursor-pointer">
+                    Add Customized Dish (@dish.Price.ToString("C0"))
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private readonly HashSet<string> _selectedMods = new();
+
+    protected override void OnInitialized()
+    {
+        Modals.OnModalChanged += HandleModalState;
+    }
+
+    public void Dispose()
+    {
+        Modals.OnModalChanged -= HandleModalState;
+    }
+
+    private void HandleModalState()
+    {
+        if (Modals.CurrentModal == ActiveModal.DishModification && Modals.SelectedDish is not null)
+        {
+            _selectedMods.Clear();
+            foreach (var m in Modals.SelectedDish.GetModifications())
+            {
+                _selectedMods.Add(m);
+            }
+        }
+        StateHasChanged();
+    }
+
+    private void ToggleMod(string mod)
+    {
+        if (!_selectedMods.Add(mod))
+            _selectedMods.Remove(mod);
+    }
+
+    private void ConfirmCustomPlate()
+    {
+        if (Modals.SelectedDish is not null)
+        {
+            var note = _selectedMods.Any() 
+                ? $"Custom: {string.Join(", ", _selectedMods)}" 
+                : "Safe with adjustments";
+
+            PlateService.Add(Modals.SelectedDish, note);
+            Modals.Close();
+        }
+    }
+}

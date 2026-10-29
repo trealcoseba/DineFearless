@@ -1,0 +1,42 @@
+@using DineFearless.Models
+@using DineFearless.Services
+@inject ModalService Modals
+@inject UserDietaryProfile Profile
+@implements IDisposable
+
+@if (Modals.CurrentModal == ActiveModal.ProfileSettings)
+{
+    <div class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in">
+        <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200">
+            <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                <h3 class="font-bold text-lg text-slate-900">Manage Allergy Profile</h3>
+                <button @onclick="Modals.Close" class="text-slate-400 hover:text-slate-600 font-bold cursor-pointer">✕</button>
+            </div>
+
+            <div class="py-4 space-y-4">
+                <p class="text-xs text-slate-500">Your profile automatically filters every restaurant menu across DineFearless.</p>
+                
+                <div class="grid grid-cols-2 gap-2">
+                    @foreach (AllergenType allergen in Enum.GetValues<AllergenType>())
+                    {
+                        var isChecked = Profile.ActiveAllergens.Contains(allergen);
+                        <button @onclick="() => Profile.ToggleAllergen(allergen)"
+                                class="p-3 rounded-xl border text-xs font-bold transition flex items-center justify-between cursor-pointer @(isChecked ? "bg-rose-50 border-rose-300 text-rose-900" : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100")">
+                            <span>@allergen</span>
+                            <span>@(isChecked ? "✓" : "+")</span>
+                        </button>
+                    }
+                </div>
+            </div>
+
+            <button @onclick="Modals.Close" class="w-full py-3 bg-emerald-800 text-white font-bold text-xs rounded-xl hover:bg-emerald-900 transition cursor-pointer shadow-xs">
+                Save & Update All Menus
+            </button>
+        </div>
+    </div>
+}
+
+@code {
+    protected override void OnInitialized() => Modals.OnModalChanged += StateHasChanged;
+    public void Dispose() => Modals.OnModalChanged -= StateHasChanged;
+}
