@@ -1,0 +1,62 @@
+@using DineFearless.Services
+@inject NavigationManager Nav
+@inject SafePlateService PlateService
+@inject ModalService Modals
+@implements IDisposable
+
+<header class="h-20 bg-white/90 backdrop-blur-md border-b border-slate-200/80 sticky top-0 z-50 px-8 flex items-center justify-between shadow-xs transition-shadow">
+    <!-- Brand / Logo -->
+    <div @onclick='() => Nav.NavigateTo("/explore")' class="flex items-center cursor-pointer group">
+        <img src="images/logo.png" 
+             alt="DineFearless" 
+             class="h-8 md:h-9 w-auto object-contain group-hover:opacity-90 transition duration-150" />
+    </div>
+
+    <!-- Center Navigation Tabs (Clean Pill Style) -->
+    <nav class="flex items-center gap-2 bg-slate-100/80 p-1.5 rounded-full border border-slate-200/60 text-xs font-bold">
+        <NavLink href="/explore" Match="NavLinkMatch.All" 
+                 ActiveClass="bg-white text-emerald-900 shadow-2xs" 
+                 class="px-4 py-2 rounded-full text-slate-600 hover:text-slate-900 transition">
+            Explore
+        </NavLink>
+        <NavLink href="/restaurant/artisan-kitchen" 
+                 ActiveClass="bg-white text-emerald-900 shadow-2xs" 
+                 class="px-4 py-2 rounded-full text-slate-600 hover:text-slate-900 transition">
+            Active Menu
+        </NavLink>
+        <NavLink href="/community" 
+                 ActiveClass="bg-white text-emerald-900 shadow-2xs" 
+                 class="px-4 py-2 rounded-full text-slate-600 hover:text-slate-900 transition">
+            Kitchen Audits
+        </NavLink>
+    </nav>
+
+    <!-- Right Controls -->
+    <div class="flex items-center gap-6">
+        <!-- Safe Plate Quick Button -->
+        <button @onclick='() => Nav.NavigateTo("/safe-plate")' 
+                class="flex items-center gap-2 px-4 py-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs transition cursor-pointer border border-slate-200/60 shadow-2xs">
+            <span>🍴 My Safe Plate</span>
+            <span class="px-2 py-0.5 rounded-full bg-emerald-700 text-white text-[10px]">
+                @PlateService.TotalCount
+            </span>
+        </button>
+
+        <div class="h-8 w-px bg-slate-200"></div>
+
+        <!-- User Profile Avatar Link -->
+        <button @onclick='() => Nav.NavigateTo("/profile")' class="flex items-center gap-3 text-left group cursor-pointer">
+            <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80" 
+                 alt="Avatar" class="w-10 h-10 rounded-full object-cover ring-2 ring-emerald-600/20 group-hover:ring-emerald-600 transition" />
+            <div>
+                <div class="text-sm font-bold text-slate-900 leading-tight group-hover:text-emerald-800 transition">Alex Morgan</div>
+                <div class="text-xs text-slate-400">Passport & Allergies ⚙</div>
+            </div>
+        </button>
+    </div>
+</header>
+
+@code {
+    protected override void OnInitialized() => PlateService.OnPlateChanged += StateHasChanged;
+    public void Dispose() => PlateService.OnPlateChanged -= StateHasChanged;
+}
