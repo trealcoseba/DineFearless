@@ -1,23 +1,28 @@
 using DineFearless.Components;
+using DineFearless.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
+// Add Blazor services
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
+// Register DineFearless Custom Services (OOP State & Strategy)
+builder.Services.AddScoped<UserDietaryProfile>();
+builder.Services.AddScoped<SafePlateService>();
+builder.Services.AddScoped<FavoritesService>();
+builder.Services.AddScoped<ModalService>();
+builder.Services.AddSingleton<RestaurantDataService>();
+
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error", createScopeForErrors: true);
-    // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
     app.UseHsts();
 }
 
 app.UseHttpsRedirection();
-
 app.UseStaticFiles();
 app.UseAntiforgery();
 
