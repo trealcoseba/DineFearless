@@ -1,7 +1,10 @@
 ﻿@page "/"
+@inject NavigationManager Nav
 
-<PageTitle>Home</PageTitle>
-
-<h1>Hello, world!</h1>
-
-Welcome to your new app.
+@code {
+    protected override void OnInitialized()
+    {
+        // Smoothly routes the root URL to the active restaurant menu
+        Nav.NavigateTo("/restaurant/artisan-kitchen", replace: true);
+    }
+}

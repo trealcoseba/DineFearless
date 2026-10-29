@@ -1,0 +1,151 @@
+@page "/restaurant/{Slug}"
+@page "/restaurant"
+@rendermode InteractiveServer
+
+@using DineFearless.Models
+@using DineFearless.Services
+@using DineFearless.Components.Sections
+
+@inject RestaurantDataService DataService
+@inject UserDietaryProfile Profile
+@inject SafePlateService PlateService
+@inject ModalService Modals
+@inject NavigationManager Nav
+@implements IDisposable
+
+<PageTitle>@(_restaurant?.Name ?? "Restaurant") - Safe Menu - DineFearless</PageTitle>
+
+<div class="min-h-screen bg-slate-50 font-sans text-slate-900 pb-20">
+    <TopNav />
+
+    <main class="max-w-[1440px] mx-auto px-8 pt-8">
+        <!-- Sub-header & Breadcrumb Navigation -->
+        <div class="flex items-center justify-between mb-8">
+            <div>
+                <button @onclick='() => Nav.NavigateTo("/explore")' 
+                        class="text-[11px] font-extrabold tracking-widest uppercase text-emerald-800 hover:text-emerald-900 flex items-center gap-1.5 transition cursor-pointer mb-1">
+                    <span>←</span> Back to all restaurants
+                </button>
+                <h2 class="text-3xl font-extrabold tracking-tight text-slate-900">
+                    @(_restaurant?.Name ?? "Restaurant") Safe Menu
+                </h2>
+            </div>
+            <div class="text-sm font-semibold text-slate-500">
+                Active filters: <span class="text-rose-600 font-bold">@string.Join(" + ", Profile.ActiveAllergens)</span>
+            </div>
+        </div>
+
+        <!-- 3-Column Desktop Grid with Sticky Sidebars -->
+        <div class="flex items-start gap-8">
+            
+            <!-- 1. Left Sidebar: Sticky Filter Controls -->
+            <div class="sticky top-24 self-start">
+                <DietarySidebar />
+            </div>
+
+            <!-- 2. Middle Content Grid (Scrolls Naturally) -->
+            <div class="flex-1 min-w-0">
+                @if (_restaurant is not null)
+                {
+                    <RestaurantHero Restaurant="@_restaurant" />
+
+                    <!-- Category Filter Tabs -->
+                    <div class="flex items-center justify-between mt-8 mb-6 border-b border-slate-200 pb-3">
+                        <div class="flex items-center gap-8">
+                            <button @onclick='() => _category = "All"' 
+                                    class="font-bold text-sm pb-3 -mb-3.5 transition cursor-pointer @(_category == "All" ? "text-emerald-900 border-b-2 border-emerald-900" : "text-slate-500 hover:text-slate-900")">
+                                All dishes (@_restaurant.Menu.Count)
+                            </button>
+                            <button @onclick='() => _category = "Starters"' 
+                                    class="font-bold text-sm pb-3 -mb-3.5 transition cursor-pointer @(_category == "Starters" ? "text-emerald-900 border-b-2 border-emerald-900" : "text-slate-500 hover:text-slate-900")">
+                                Starters
+                            </button>
+                            <button @onclick='() => _category = "Mains"' 
+                                    class="font-bold text-sm pb-3 -mb-3.5 transition cursor-pointer @(_category == "Mains" ? "text-emerald-900 border-b-2 border-emerald-900" : "text-slate-500 hover:text-slate-900")">
+                                Mains
+                            </button>
+                        </div>
+                        <span class="text-xs text-slate-400 font-medium">@FilteredDishes.Count() dishes displayed</span>
+                    </div>
+
+                    <!-- 3-Column Dish Grid -->
+                    <div class="grid grid-cols-3 gap-6">
+                        @foreach (var dish in FilteredDishes)
+                        {
+                            <DishCard Dish="@dish" />
+                        }
+                    </div>
+
+                    <ConfidenceBanner />
+                    
+                    <footer class="mt-8 text-center text-xs text-slate-400">
+                        Protocols reviewed Oct 18, 2026 • Menu details can change. Confirm with your server.
+                    </footer>
+                }
+            </div>
+
+            <!-- 3. Right Sidebar: Sticky Safe Plate & Kitchen Server Card -->
+            <div class="w-80 shrink-0 sticky top-24 self-start space-y-6">
+                <SafePlatePanel />
+                <KitchenServerCard />
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Interactive Modals Suite -->
+    <DishModificationModal />
+    <DishDetailModal />
+    <ServerCardModal />
+    <KitchenProtocolsModal />
+    <ProfileSettingsModal />
+</div>
+
+@code {
+    [Parameter] public string Slug { get; set; } = "artisan-kitchen";
+
+    private Restaurant _restaurant = default!;
+    private string _category = "All";
+
+    private IEnumerable<MenuItem> FilteredDishes
+    {
+        get
+        {
+            if (_restaurant is null) return Enumerable.Empty<MenuItem>();
+
+            return _category switch
+            {
+                "Starters" => _restaurant.Menu.Where(d => d.Price < 20),
+                "Mains" => _restaurant.Menu.Where(d => d.Price >= 20),
+                _ => _restaurant.Menu
+            };
+        }
+    }
+
+    protected override void OnParametersSet()
+    {
+        var targetSlug = string.IsNullOrWhiteSpace(Slug) ? "artisan-kitchen" : Slug;
+        _restaurant = DataService.GetBySlug(targetSlug);
+    }
+
+    protected override void OnInitialized()
+    {
+        // Pre-seed "Truffle Polenta" to match the Figma mockup on first load
+        var targetSlug = string.IsNullOrWhiteSpace(Slug) ? "artisan-kitchen" : Slug;
+        _restaurant = DataService.GetBySlug(targetSlug);
+        var firstDish = _restaurant.Menu.FirstOrDefault();
+        if (firstDish is not null && !PlateService.Items.Any())
+        {
+            PlateService.Add(firstDish);
+        }
+
+        Profile.OnProfileChanged += StateHasChanged;
+        Modals.OnModalChanged += StateHasChanged;
+    }
+
+    public void Dispose()
+    {
+        Profile.OnProfileChanged -= StateHasChanged;
+        Modals.OnModalChanged -= StateHasChanged;
+    }
+}
