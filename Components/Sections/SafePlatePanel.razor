@@ -1,0 +1,72 @@
+@using DineFearless.Services
+@inject SafePlateService PlateService
+@inject NavigationManager Nav
+@implements IDisposable
+
+<div class="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs">
+    <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center gap-2">
+            <span class="text-lg">🍴</span>
+            <h3 class="font-bold text-lg text-slate-900">My Safe Plate</h3>
+        </div>
+        <span class="w-6 h-6 rounded-full bg-emerald-50 text-emerald-800 text-xs font-bold flex items-center justify-center border border-emerald-200">
+            @PlateService.TotalCount
+        </span>
+    </div>
+
+    <p class="text-xs text-slate-400 mb-4">Your picks from Artisan Kitchen</p>
+
+    @if (!PlateService.Items.Any())
+    {
+        <div class="py-8 text-center text-xs text-slate-400 border border-dashed border-slate-200 rounded-2xl">
+            No safe dishes added yet.
+        </div>
+    }
+    else
+    {
+        <div class="space-y-4">
+            @foreach (var item in PlateService.Items)
+            {
+                <div class="p-3 rounded-2xl bg-slate-50 border border-slate-100 flex items-start justify-between">
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-emerald-600 font-bold text-xs">✓</span>
+                            <span class="font-bold text-sm text-slate-900">@item.Dish.Name</span>
+                        </div>
+                        <p class="text-[11px] text-slate-500 mt-0.5">@item.StatusNote</p>
+                        
+                        <!-- Stepper & Remove -->
+                        <div class="flex items-center gap-2 mt-2">
+                            <div class="flex items-center bg-white border border-slate-200 rounded-md text-xs font-bold">
+                                <button @onclick="() => PlateService.UpdateQuantity(item.Dish, -1)" class="px-2 py-0.5 hover:bg-slate-100 cursor-pointer">-</button>
+                                <span class="px-2">@item.Quantity</span>
+                                <button @onclick="() => PlateService.UpdateQuantity(item.Dish, 1)" class="px-2 py-0.5 hover:bg-slate-100 cursor-pointer">+</button>
+                            </div>
+                            <button @onclick="() => PlateService.Remove(item.Dish)" class="text-[11px] text-slate-400 hover:text-rose-600 cursor-pointer">Remove</button>
+                        </div>
+                    </div>
+                    <span class="font-bold text-sm text-slate-900">@((item.Dish.Price * item.Quantity).ToString("C0"))</span>
+                </div>
+            }
+
+            <div class="pt-4 border-t border-slate-100 flex items-center justify-between">
+                <span class="text-xs font-bold text-slate-500">Estimated total</span>
+                <span class="text-xl font-black text-slate-900">@PlateService.EstimatedTotal.ToString("C2")</span>
+            </div>
+            
+            <p class="text-[11px] text-slate-400 leading-tight">
+                A saved plate, not an order. Share your selections with your server.
+            </p>
+
+            <button @onclick='() => Nav.NavigateTo("/safe-plate")' 
+                    class="w-full py-2.5 bg-slate-900 hover:bg-emerald-800 text-white font-bold text-xs rounded-xl transition cursor-pointer">
+                View Full Plate Checkout →
+            </button>
+        </div>
+    }
+</div>
+
+@code {
+    protected override void OnInitialized() => PlateService.OnPlateChanged += StateHasChanged;
+    public void Dispose() => PlateService.OnPlateChanged -= StateHasChanged;
+}

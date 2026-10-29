@@ -1,0 +1,169 @@
+@using DineFearless.Models
+@using DineFearless.Services
+@inject UserDietaryProfile Profile
+@inject IJSRuntime JS
+@implements IDisposable
+
+<div class="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs relative overflow-hidden">
+    <div class="absolute top-0 left-0 right-0 h-1.5 @(Profile.ActiveAllergens.Any() ? "bg-rose-500" : "bg-emerald-500")"></div>
+
+    <div class="flex items-center gap-2 mb-1">
+        <span class="text-base">📋</span>
+        <h3 class="font-bold text-base text-slate-900">Kitchen Server Card</h3>
+    </div>
+    <p class="text-xs text-slate-400 mb-4">Hand this to your server before ordering.</p>
+
+    <!-- Alert Box: Dynamically reacts to whether allergies are selected -->
+    @if (Profile.ActiveAllergens.Any())
+    {
+        <div class="rounded-2xl border border-rose-200 bg-rose-50/60 p-4 mb-4">
+            <div class="text-[10px] font-extrabold uppercase tracking-widest text-rose-700 flex items-center gap-1.5 mb-1">
+                <span>⚠</span> @Profile.Sensitivity.ToString().ToUpper()
+            </div>
+            <h4 class="font-black text-base text-rose-950 leading-tight">
+                I must avoid @string.Join(" and ", Profile.ActiveAllergens).
+            </h4>
+            <p class="mt-1.5 text-xs text-rose-800 leading-relaxed">
+                Please prevent cross-contact, including shared oils, utensils and prep surfaces.
+            </p>
+        </div>
+    }
+    else
+    {
+        <div class="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4 mb-4">
+            <div class="text-[10px] font-extrabold uppercase tracking-widest text-emerald-700 flex items-center gap-1.5 mb-1">
+                <span>✓</span> NO RESTRICTIONS
+            </div>
+            <h4 class="font-bold text-sm text-emerald-950 leading-tight">
+                No active allergies selected
+            </h4>
+            <p class="mt-1.5 text-xs text-emerald-800 leading-relaxed">
+                All menu items are currently safe. Select allergens in the left sidebar to generate a custom medical server card.
+            </p>
+        </div>
+    }
+
+    <!-- Checklist -->
+    <div class="space-y-1.5 text-xs font-semibold text-slate-700 mb-5">
+        <div class="flex items-center gap-2">
+            <span class="text-emerald-600">✓</span> Dedicated fryer only
+        </div>
+        <div class="flex items-center gap-2">
+            <span class="text-emerald-600">✓</span> Separate prep table
+        </div>
+        <div class="flex items-center gap-2">
+            <span class="text-emerald-600">✓</span> Confirm ingredients with the chef
+        </div>
+    </div>
+
+    <!-- Action Button -->
+    @if (Profile.ActiveAllergens.Any())
+    {
+        <button @onclick="TriggerExportPopup" 
+                class="w-full py-3.5 bg-emerald-800 hover:bg-emerald-900 text-white font-bold text-xs rounded-xl transition flex items-center justify-center gap-2 shadow-xs cursor-pointer active:scale-95">
+            <span>🖨</span> Print / Export Card
+        </button>
+    }
+    else
+    {
+        <button disabled 
+                class="w-full py-3.5 bg-slate-100 text-slate-400 font-bold text-xs rounded-xl flex items-center justify-center gap-2 cursor-not-allowed">
+            <span>ℹ</span> Select Allergens to Export
+        </button>
+    }
+    
+    <div class="text-center mt-3 text-[10px] text-slate-400 font-medium">
+        Clear communication. Safer dining.
+    </div>
+</div>
+
+<!-- ========================================== -->
+<!-- POP-UP MODAL (Export Handover Card)       -->
+<!-- ========================================== -->
+@if (_showPopup)
+{
+    <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fade-in">
+        <div class="rounded-3xl max-w-xl w-full p-8 shadow-2xl transition-colors duration-200 @(_highContrastMode ? "bg-black text-yellow-400 border-4 border-yellow-400" : "bg-white text-slate-900 border border-slate-200")">
+            
+            <!-- Mode Toggle Bar -->
+            <div class="flex items-center justify-between pb-4 border-b @(_highContrastMode ? "border-yellow-400/30" : "border-slate-100")">
+                <button @onclick="() => _highContrastMode = !_highContrastMode"
+                        class="px-3.5 py-1.5 rounded-full text-xs font-black transition cursor-pointer @(_highContrastMode ? "bg-yellow-400 text-black" : "bg-slate-100 text-slate-700 hover:bg-slate-200")">
+                    ⚡ @(_highContrastMode ? "Standard Mode" : "Dim Restaurant Mode")
+                </button>
+
+                <button @onclick="() => _showPopup = false" class="text-xl font-bold cursor-pointer">✕</button>
+            </div>
+
+            <!-- Warning Card -->
+            <div class="my-6 text-center">
+                <span class="inline-block px-3 py-1 text-[11px] font-black uppercase tracking-widest rounded-full mb-3 @(_highContrastMode ? "bg-red-600 text-white" : "bg-rose-600 text-white")">
+                    MEDICAL ALLERGY ALERT
+                </span>
+
+                <h3 class="text-3xl font-black leading-tight">
+                    I MUST AVOID: <br />
+                    <span class="@(_highContrastMode ? "underline text-yellow-300" : "text-rose-600")">
+                        @(Profile.ActiveAllergens.Any() ? string.Join(" & ", Profile.ActiveAllergens) : "NONE")
+                    </span>
+                </h3>
+
+                <p class="mt-4 text-sm font-semibold max-w-md mx-auto leading-relaxed @(_highContrastMode ? "text-slate-300" : "text-slate-600")">
+                    "Please inform the chef to use clean utensils, clean cutting boards, and separate cooking oil. Thank you!"
+                </p>
+            </div>
+
+            <!-- Actions -->
+            <div class="flex items-center gap-3 mt-6">
+                <button @onclick="CopyToClipboard" 
+                        class="flex-1 py-3.5 rounded-xl font-black text-xs border transition cursor-pointer @(_highContrastMode ? "border-yellow-400 text-yellow-400 hover:bg-yellow-400/10" : "border-slate-200 text-slate-700 hover:bg-slate-50")">
+                    📋 Copy Text
+                </button>
+                <button @onclick="PrintNow" 
+                        class="flex-1 py-3.5 rounded-xl font-black text-xs transition cursor-pointer shadow-xs @(_highContrastMode ? "bg-yellow-400 text-black hover:bg-yellow-300" : "bg-emerald-800 text-white hover:bg-emerald-900")">
+                    🖨 Open Print View
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool _showPopup = false;
+    private bool _highContrastMode = false;
+
+    protected override void OnInitialized() => Profile.OnProfileChanged += StateHasChanged;
+    public void Dispose() => Profile.OnProfileChanged -= StateHasChanged;
+
+    private async Task TriggerExportPopup()
+    {
+        _showPopup = true;
+        await CopyToClipboard();
+    }
+
+    private async Task CopyToClipboard()
+    {
+        if (!Profile.ActiveAllergens.Any()) return;
+
+        var allergens = string.Join(" & ", Profile.ActiveAllergens);
+        var message = $"ALLERGY NOTICE: Order must strictly exclude {allergens}. Please use a dedicated fryer and clean prep station.";
+        
+        try
+        {
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", message);
+        }
+        catch
+        {
+            // Clipboard fallback
+        }
+    }
+
+    private async Task PrintNow()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("window.print");
+        }
+        catch { }
+    }
+}
