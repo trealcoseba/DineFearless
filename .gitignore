@@ -1,0 +1,10 @@
+## .NET build outputs
+bin/
+obj/
+
+## Node / Tailwind dependencies
+node_modules/
+
+## IDE and local settings
+.vscode/
+appsettings.Development.json
