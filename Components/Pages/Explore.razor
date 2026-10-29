@@ -1,0 +1,179 @@
+@page "/explore"
+@rendermode InteractiveServer
+
+@using DineFearless.Models
+@using DineFearless.Services
+@using DineFearless.Components.Sections
+@inject RestaurantDataService RestaurantService
+@inject UserDietaryProfile Profile
+@inject FavoritesService Favorites
+@inject NavigationManager Nav
+@implements IDisposable
+
+<PageTitle>Explore Safe Restaurants - DineFearless</PageTitle>
+
+<div class="min-h-screen bg-slate-50 font-sans text-slate-900 pb-16">
+    <TopNav />
+
+    <main class="max-w-[1440px] mx-auto px-8 pt-8">
+        <!-- Title & Subheader -->
+        <div class="flex items-center justify-between mb-8">
+            <div>
+                <span class="text-[11px] font-extrabold tracking-widest uppercase text-emerald-800">Verified Discovery</span>
+                <h1 class="text-3xl font-black tracking-tight text-slate-900 mt-1">Find Allergy-Safe Dining</h1>
+                <p class="text-sm text-slate-500 mt-1">
+                    Real-time cross-contact scores for: 
+                    <span class="font-bold text-rose-600">@string.Join(" + ", Profile.ActiveAllergens)</span>
+                </p>
+            </div>
+
+            <!-- Quick Allergen Filter Pills -->
+            <div class="flex items-center gap-2">
+                <span class="text-xs font-bold text-slate-400 uppercase tracking-wider mr-2">Filter:</span>
+                @foreach (AllergenType allergen in Enum.GetValues<AllergenType>())
+                {
+                    var isSelected = Profile.ActiveAllergens.Contains(allergen);
+                    <button @onclick="() => Profile.ToggleAllergen(allergen)"
+                            class="px-3 py-1.5 rounded-full text-xs font-bold transition cursor-pointer @(isSelected ? "bg-rose-600 text-white shadow-xs" : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50")">
+                        @(isSelected ? "✓ " : "+ ") @allergen
+                    </button>
+                }
+            </div>
+        </div>
+
+        <!-- Filter & Search Toolbar -->
+        <div class="bg-white p-4 rounded-3xl border border-slate-200 shadow-xs mb-8 flex items-center justify-between gap-4">
+            <!-- Search Input -->
+            <div class="flex-1 flex items-center gap-2 bg-slate-50 rounded-2xl px-4 py-2 border border-slate-200">
+                <span class="text-slate-400">🔍</span>
+                <input type="text" @bind="_searchQuery" @bind:event="oninput" 
+                       placeholder="Filter by restaurant name or neighborhood..." 
+                       class="w-full bg-transparent text-sm outline-none text-slate-800" />
+            </div>
+
+            <!-- Cuisine Buttons -->
+            <div class="flex items-center gap-2">
+                @foreach (var cuisine in new[] { "All", "American", "Vegan" })
+                {
+                    <button @onclick="() => _selectedCuisine = cuisine"
+                            class="px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer @(_selectedCuisine == cuisine ? "bg-emerald-800 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200")">
+                        @cuisine
+                    </button>
+                }
+            </div>
+
+            <!-- Sort Selector -->
+            <div class="flex items-center gap-2 border-l border-slate-200 pl-4 text-xs font-bold text-slate-600">
+                <span>Sort by:</span>
+                <select @bind="_sortBy" class="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 outline-none font-bold text-slate-800 cursor-pointer">
+                    <option value="Match">Highest Match %</option>
+                    <option value="Rating">Top Rated</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Restaurant Cards Grid -->
+        <div class="grid grid-cols-3 gap-8">
+            @foreach (var restaurant in FilteredRestaurants)
+            {
+                var safeCount = restaurant.Menu.Count(d => Profile.EvaluateItem(d).Status != AssessmentStatus.Unsafe);
+                var total = restaurant.Menu.Count;
+                var matchPercent = total > 0 ? (safeCount * 100 / total) : 0;
+                var isFav = Favorites.IsFavorite(restaurant.Name);
+
+                <div class="group rounded-3xl border border-slate-200 bg-white overflow-hidden shadow-xs hover:shadow-xl transition-all duration-300 flex flex-col justify-between">
+                    <div>
+                        <!-- Cover Image & Badges -->
+                        <div class="relative h-48 w-full overflow-hidden">
+                            <img src="@restaurant.BannerImageUrl" alt="@restaurant.Name" 
+                                 class="h-full w-full object-cover group-hover:scale-105 transition duration-300" />
+                            
+                            <div class="absolute top-3 left-3">
+                                <span class="inline-flex items-center gap-1 bg-white/95 backdrop-blur-md px-3 py-1 rounded-full text-xs font-black shadow-sm @(matchPercent >= 80 ? "text-emerald-800" : "text-amber-800")">
+                                    🛡 @matchPercent% Match
+                                </span>
+                            </div>
+
+                            <!-- Interactive Bookmark Button -->
+                            <button @onclick="() => Favorites.ToggleFavorite(restaurant.Name)" 
+                                    class="absolute top-3 right-3 w-9 h-9 rounded-full bg-white/95 backdrop-blur-md flex items-center justify-center text-sm shadow-sm transition hover:scale-110 cursor-pointer">
+                                @(isFav ? "★" : "☆")
+                            </button>
+                        </div>
+
+                        <!-- Info -->
+                        <div class="p-6">
+                            <div class="flex items-center justify-between">
+                                <h3 class="text-xl font-bold text-slate-900 group-hover:text-emerald-800 transition">@restaurant.Name</h3>
+                                <span class="text-xs font-bold text-amber-500">★ @restaurant.Rating</span>
+                            </div>
+                            <p class="mt-1 text-xs text-slate-500">@restaurant.Category • @restaurant.Neighborhood • @restaurant.Distance</p>
+
+                            <!-- Protocol Tags -->
+                            <div class="mt-4 flex flex-wrap gap-1.5">
+                                <span class="bg-emerald-50 text-emerald-800 text-[10px] font-bold px-2.5 py-1 rounded-lg border border-emerald-100">
+                                    ✓ Dedicated Fryer
+                                </span>
+                                <span class="bg-emerald-50 text-emerald-800 text-[10px] font-bold px-2.5 py-1 rounded-lg border border-emerald-100">
+                                    ✓ Allergy Certified
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Footer Action -->
+                    <div class="px-6 pb-6 pt-2 border-t border-slate-100 flex items-center justify-between">
+                        <span class="text-xs font-bold text-emerald-700">@safeCount of @total safe dishes</span>
+                        <button @onclick='() => Nav.NavigateTo($"/restaurant/{restaurant.Name.ToLower().Replace(" ", "-")}")' 
+                                class="px-4 py-2 rounded-xl bg-slate-900 hover:bg-emerald-800 text-white font-bold text-xs transition cursor-pointer">
+                            View Safe Menu →
+                        </button>
+                    </div>
+                </div>
+            }
+        </div>
+    </main>
+</div>
+
+@code {
+    private string _searchQuery = "";
+    private string _selectedCuisine = "All";
+    private string _sortBy = "Match";
+
+    private IEnumerable<Restaurant> FilteredRestaurants
+    {
+        get
+        {
+            var list = RestaurantService.GetAll().AsEnumerable();
+
+            if (!string.IsNullOrWhiteSpace(_searchQuery))
+            {
+                list = list.Where(r => r.Name.Contains(_searchQuery, StringComparison.OrdinalIgnoreCase) 
+                                    || r.Neighborhood.Contains(_searchQuery, StringComparison.OrdinalIgnoreCase));
+            }
+
+            if (_selectedCuisine != "All")
+            {
+                list = list.Where(r => r.Category.Contains(_selectedCuisine, StringComparison.OrdinalIgnoreCase));
+            }
+
+            return _sortBy switch
+            {
+                "Rating" => list.OrderByDescending(r => r.Rating),
+                _ => list
+            };
+        }
+    }
+
+    protected override void OnInitialized()
+    {
+        Profile.OnProfileChanged += StateHasChanged;
+        Favorites.OnFavoritesChanged += StateHasChanged;
+    }
+
+    public void Dispose()
+    {
+        Profile.OnProfileChanged -= StateHasChanged;
+        Favorites.OnFavoritesChanged -= StateHasChanged;
+    }
+}

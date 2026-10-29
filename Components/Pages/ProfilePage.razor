@@ -1,0 +1,131 @@
+@page "/profile"
+@rendermode InteractiveServer
+
+@using DineFearless.Models
+@using DineFearless.Services
+@using DineFearless.Components.Sections
+@inject UserDietaryProfile Profile
+@inject NavigationManager Nav
+@implements IDisposable
+
+<PageTitle>My Allergy Passport - DineFearless</PageTitle>
+
+<div class="min-h-screen bg-slate-50 font-sans text-slate-900 pb-16">
+    <TopNav />
+
+    <main class="max-w-[1000px] mx-auto px-8 pt-8">
+        <!-- Header -->
+        <div class="flex items-center justify-between mb-8">
+            <div>
+                <span class="text-[11px] font-extrabold tracking-widest uppercase text-emerald-800">Account & Medical Safety</span>
+                <h1 class="text-3xl font-black tracking-tight text-slate-900 mt-1">Digital Allergy Passport</h1>
+                <p class="text-sm text-slate-500">Your profile automatically sets the safety algorithms on all menus.</p>
+            </div>
+            
+            @if (_showSavedBadge)
+            {
+                <span class="text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-full animate-fade-in">
+                    ✓ Preferences Saved
+                </span>
+            }
+        </div>
+
+        <div class="grid grid-cols-3 gap-8">
+            <!-- Left 2 Columns: Edit Allergens & Sensitivity -->
+            <div class="col-span-2 space-y-6">
+                <!-- Allergens Box -->
+                <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs">
+                    <h3 class="text-lg font-bold text-slate-900 mb-2">Active Allergies & Restrictions</h3>
+                    <p class="text-xs text-slate-500 mb-4">Click any allergen to toggle it on or off your medical profile.</p>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        @foreach (AllergenType allergen in Enum.GetValues<AllergenType>())
+                        {
+                            var isActive = Profile.ActiveAllergens.Contains(allergen);
+                            <button @onclick="() => ToggleAndNotify(allergen)"
+                                    class="p-4 rounded-2xl border text-left transition cursor-pointer flex items-center justify-between @(isActive ? "bg-rose-50/70 border-rose-300 text-rose-950" : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100")">
+                                <div>
+                                    <div class="text-sm font-bold">@allergen</div>
+                                    <div class="text-[11px] @(isActive ? "text-rose-700 font-semibold" : "text-slate-400")">
+                                        @(isActive ? "Strict exclusion" : "Not active")
+                                    </div>
+                                </div>
+                                <span class="text-lg font-bold">@(isActive ? "✓" : "+")</span>
+                            </button>
+                        }
+                    </div>
+                </div>
+
+                <!-- Sensitivity Mode -->
+                <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs">
+                    <h3 class="text-lg font-bold text-slate-900 mb-2">Medical Sensitivity Level</h3>
+                    <p class="text-xs text-slate-500 mb-4">Dictates how strictly our algorithm handles shared equipment and fryers.</p>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <button @onclick="() => { Profile.SetSensitivity(SensitivityLevel.StrictMedical); TriggerSaved(); }"
+                                class="p-4 rounded-2xl border text-left transition cursor-pointer @(Profile.Sensitivity == SensitivityLevel.StrictMedical ? "border-emerald-600 bg-emerald-50/50 ring-2 ring-emerald-600/20" : "border-slate-200 hover:bg-slate-50")">
+                            <div class="text-sm font-bold text-slate-900">Strict Medical / Celiac</div>
+                            <p class="text-xs text-slate-500 mt-1">Warns on shared oil fryers, shared grill surfaces, and unverified prep stations.</p>
+                        </button>
+
+                        <button @onclick="() => { Profile.SetSensitivity(SensitivityLevel.MildSensitivity); TriggerSaved(); }"
+                                class="p-4 rounded-2xl border text-left transition cursor-pointer @(Profile.Sensitivity == SensitivityLevel.MildSensitivity ? "border-emerald-600 bg-emerald-50/50 ring-2 ring-emerald-600/20" : "border-slate-200 hover:bg-slate-50")">
+                            <div class="text-sm font-bold text-slate-900">Mild Sensitivity / Lifestyle</div>
+                            <p class="text-xs text-slate-500 mt-1">Allows trace airborne contact and shared fryers. Focuses on direct dish ingredients.</p>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Digital Passport Card -->
+            <div class="space-y-6">
+                <div class="bg-gradient-to-br from-slate-900 to-slate-800 text-white p-6 rounded-3xl shadow-xl border border-slate-700">
+                    <div class="flex items-center justify-between mb-4">
+                        <span class="text-[10px] font-black uppercase tracking-widest text-emerald-400 bg-emerald-950 px-2.5 py-1 rounded-full border border-emerald-800">
+                            Verified Passport
+                        </span>
+                        <span class="text-xl">🛡</span>
+                    </div>
+
+                    <div class="text-xl font-black">Alex Morgan</div>
+                    <div class="text-xs text-slate-400 mt-0.5">ID: DF-84920-NYC</div>
+
+                    <div class="my-6 p-4 rounded-2xl bg-white/10 backdrop-blur-md border border-white/10">
+                        <div class="text-[10px] uppercase font-bold text-slate-300">Exclude direct and trace:</div>
+                        <div class="text-lg font-black text-rose-400 mt-1">
+                            @(Profile.ActiveAllergens.Any() ? string.Join(", ", Profile.ActiveAllergens) : "None")
+                        </div>
+                    </div>
+
+                    <div class="text-[11px] text-slate-400 space-y-1">
+                        <div>Mode: <span class="text-white font-bold">@Profile.Sensitivity</span></div>
+                        <div>Dedicated Fryer: <span class="text-white font-bold">@(Profile.DedicatedFryerOnly ? "Required" : "Optional")</span></div>
+                    </div>
+
+                    <button @onclick='() => Nav.NavigateTo("/safe-plate")' 
+                            class="w-full mt-6 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-bold text-xs text-white transition cursor-pointer shadow-xs">
+                        View Safe Tray Checkout →
+                    </button>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+@code {
+    private bool _showSavedBadge = false;
+
+    private void ToggleAndNotify(AllergenType allergen)
+    {
+        Profile.ToggleAllergen(allergen);
+        TriggerSaved();
+    }
+
+    private void TriggerSaved()
+    {
+        _showSavedBadge = true;
+    }
+
+    protected override void OnInitialized() => Profile.OnProfileChanged += StateHasChanged;
+    public void Dispose() => Profile.OnProfileChanged -= StateHasChanged;
+}
