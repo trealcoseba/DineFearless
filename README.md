@@ -38,6 +38,13 @@ Components subscribe directly to state services and re-render only when relevant
 
 ---
 
+## 🗄 Database & Storage Pattern (Supabase / PostgreSQL)
+
+### Why We Chose Soft Delete (`deleted_at`)
+For both the `dishes` and `kitchen_audits` tables, **DineFearless** uses the **Soft Delete** storage pattern (`deleted_at timestamptz`). In an allergy-safety platform, permanently erasing a dish or audit row destroys traceability if a diner later needs to verify what ingredients or kitchen protocols were active on a past date. Instead, deleting an item simply populates its `deleted_at` timestamp, hiding it from all active user queries (`.Where(x => x.DeletedAt == null)`) while keeping the historical record intact and easily restorable.
+
+---
+
 ## 🛠 Technology Stack
 
 * **Framework:** ASP.NET Core Blazor (Interactive Server Render Mode)
