@@ -19,7 +19,8 @@ builder.Services.AddScoped<UserDietaryProfile>();
 builder.Services.AddScoped<SafePlateService>();
 builder.Services.AddScoped<FavoritesService>();
 builder.Services.AddScoped<ModalService>();
-builder.Services.AddSingleton<RestaurantDataService>();
+builder.Services.AddScoped<RestaurantDataService>();
+builder.Services.AddScoped<AuditDataService>();
 
 var app = builder.Build();
 
