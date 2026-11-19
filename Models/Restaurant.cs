@@ -2,6 +2,8 @@ namespace DineFearless.Models;
 
 public class Restaurant
 {
+    public long DbId { get; set; }
+    public string Slug { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public string Category { get; set; } = string.Empty;
     public string Neighborhood { get; set; } = string.Empty;

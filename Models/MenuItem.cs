@@ -3,6 +3,8 @@ namespace DineFearless.Models;
 public abstract class MenuItem
 {
     public Guid Id { get; } = Guid.NewGuid();
+    public long DbId { get; set; }
+    public string Category { get; set; } = "Mains";
     public string Name { get; }
     public decimal Price { get; }
     public string Description { get; }
