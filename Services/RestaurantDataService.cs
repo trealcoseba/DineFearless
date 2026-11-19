@@ -83,6 +83,9 @@ public class RestaurantDataService
         bool dedicatedPrep,
         string modificationsCsv)
     {
+        if (price <= 0)
+            throw new ArgumentException("Dish price must be greater than $0.00.", nameof(price));
+
         var newDish = new DishRecord
         {
             RestaurantId = restaurantId,
@@ -106,7 +109,7 @@ public class RestaurantDataService
     // UPDATE DISH PRICE (PATCH)
     public async Task UpdateDishPriceAsync(long dishId, decimal newPrice)
     {
-        if (newPrice < 0) return;
+        if (newPrice <= 0) return;
 
         await _db.From<DishRecord>()
             .Where(d => d.Id == dishId)

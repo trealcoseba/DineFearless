@@ -26,7 +26,7 @@ create table public.dishes (
     restaurant_id bigint not null references public.restaurants(id) on delete cascade,
     name text not null,
     description text not null,
-    price numeric(10,2) not null default 0 check (price >= 0),
+    price numeric(10,2) not null check (price > 0),
     category text not null default 'Mains',
     image_url text not null,
     uses_dedicated_fryer boolean not null default false,
