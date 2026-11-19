@@ -1,8 +1,10 @@
 @page "/community"
 @rendermode InteractiveServer
 
+@using DineFearless.Models.Db
+@using DineFearless.Services
 @using DineFearless.Components.Sections
-@inject NavigationManager Nav
+@inject AuditDataService AuditService
 
 <PageTitle>Community Kitchen Audits - DineFearless</PageTitle>
 
@@ -14,96 +16,134 @@
             <div>
                 <span class="text-[11px] font-extrabold tracking-widest uppercase text-emerald-800">Diner-Verified Safety</span>
                 <h1 class="text-3xl font-black tracking-tight text-slate-900 mt-1">Community Audits & Reports</h1>
-                <p class="text-sm text-slate-500">Real-time reports on fryer contamination, server attentiveness, and clean prep areas.</p>
+                <p class="text-sm text-slate-500">Live reports stored in Supabase PostgreSQL.</p>
             </div>
 
-            <button class="px-4 py-2.5 rounded-xl bg-emerald-800 text-white font-bold text-xs shadow-xs hover:bg-emerald-900 transition cursor-pointer">
-                + Submit Kitchen Audit
+            <button @onclick="() => _showForm = !_showForm"
+                    class="px-4 py-2.5 rounded-xl bg-emerald-800 text-white font-bold text-xs shadow-xs hover:bg-emerald-900 transition cursor-pointer">
+                @(_showForm ? "Cancel" : "+ Submit Kitchen Audit")
             </button>
         </div>
 
-        <div class="space-y-4">
-            @foreach (var audit in _audits)
-            {
-                <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs flex items-start justify-between">
-                    <div>
-                        <div class="flex items-center gap-3">
-                            <h3 class="font-bold text-lg text-slate-900">@audit.RestaurantName</h3>
-                            <span class="bg-emerald-100 text-emerald-800 text-xs font-bold px-2.5 py-0.5 rounded-full">
-                                ✓ Verified Celiac Safe
-                            </span>
-                            <span class="text-xs text-slate-400">• @audit.DateAgo</span>
-                        </div>
-
-                        <p class="mt-2 text-sm text-slate-700 leading-relaxed max-w-2xl">
-                            "@audit.Comment"
-                        </p>
-
-                        <div class="mt-4 flex items-center gap-2">
-                            <span class="text-xs font-bold text-slate-400">Allergy Profile Tested:</span>
-                            @foreach (var tag in audit.Tags)
-                            {
-                                <span class="bg-slate-100 text-slate-700 font-semibold text-[11px] px-2.5 py-0.5 rounded-md">
-                                    @tag
-                                </span>
-                            }
-                        </div>
-                    </div>
-
-                    <!-- Interactive Upvote Button -->
-                    <button @onclick="() => Upvote(audit)"
-                            class="flex flex-col items-center justify-center w-16 h-16 rounded-2xl border transition cursor-pointer @(audit.HasUpvoted ? "bg-emerald-800 border-emerald-800 text-white" : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100")">
-                        <span class="text-xs">▲</span>
-                        <span class="text-xs font-black">@audit.Upvotes</span>
+        <!-- CREATE FORM (POST) -->
+        @if (_showForm)
+        {
+            <div class="bg-white p-6 rounded-3xl border border-emerald-200 shadow-xs mb-8 space-y-4">
+                <h3 class="font-bold text-base text-slate-900">Submit New Kitchen Audit</h3>
+                <div class="grid grid-cols-2 gap-4">
+                    <select @bind="_newRestaurantId" class="px-3 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold outline-none">
+                        <option value="1">Artisan Kitchen</option>
+                        <option value="2">Green Fork Bistro</option>
+                    </select>
+                    <input @bind="_newTags" placeholder="Allergy tags (e.g. Celiac, Nut-Free)" class="px-3 py-2.5 rounded-xl border border-slate-200 text-xs outline-none" />
+                </div>
+                <textarea @bind="_newComment" rows="3" placeholder="Share how the kitchen handled your allergies..." class="w-full px-3 py-2.5 rounded-xl border border-slate-200 text-xs outline-none"></textarea>
+                
+                <div class="flex justify-end">
+                    <button @onclick="SubmitAuditAsync" disabled="@_saving"
+                            class="px-6 py-2.5 rounded-xl bg-emerald-800 hover:bg-emerald-900 text-white font-bold text-xs cursor-pointer disabled:opacity-50">
+                        @(_saving ? "Saving to Supabase..." : "Publish Audit")
                     </button>
                 </div>
-            }
-        </div>
+            </div>
+        }
+
+        @if (_loading)
+        {
+            <div class="text-center py-12 text-sm text-slate-400 font-bold">Loading audits from Supabase...</div>
+        }
+        else
+        {
+            <div class="space-y-4">
+                @foreach (var audit in _audits)
+                {
+                    <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs flex items-start justify-between gap-6">
+                        <div class="flex-1">
+                            <div class="flex items-center gap-3">
+                                <h3 class="font-bold text-lg text-slate-900">@audit.RestaurantName</h3>
+                                <span class="bg-emerald-100 text-emerald-800 text-xs font-bold px-2.5 py-0.5 rounded-full">
+                                    ✓ Verified Audit
+                                </span>
+                            </div>
+
+                            <p class="mt-2 text-sm text-slate-700 leading-relaxed max-w-2xl">
+                                "@audit.Comment"
+                            </p>
+
+                            <div class="mt-4 flex items-center gap-2 flex-wrap">
+                                <span class="text-xs font-bold text-slate-400">Tested for:</span>
+                                @foreach (var tag in audit.TagsCsv.Split(',', StringSplitOptions.RemoveEmptyEntries))
+                                {
+                                    <span class="bg-slate-100 text-slate-700 font-semibold text-[11px] px-2.5 py-0.5 rounded-md">
+                                        @tag.Trim()
+                                    </span>
+                                }
+                            </div>
+                        </div>
+
+                        <div class="flex items-center gap-3">
+                            <!-- UPDATE (PATCH Upvote) -->
+                            <button @onclick="() => UpvoteAsync(audit)"
+                                    class="flex flex-col items-center justify-center w-14 h-14 rounded-2xl border bg-slate-50 border-slate-200 text-slate-700 hover:bg-emerald-800 hover:text-white hover:border-emerald-800 transition cursor-pointer">
+                                <span class="text-xs">▲</span>
+                                <span class="text-xs font-black">@audit.Upvotes</span>
+                            </button>
+
+                            <!-- SOFT DELETE (PATCH deleted_at) -->
+                            <button @onclick="() => DeleteAuditAsync(audit)" title="Soft delete audit"
+                                    class="w-10 h-14 rounded-2xl border border-slate-200 text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition flex items-center justify-center cursor-pointer">
+                                🗑
+                            </button>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
     </main>
 </div>
 
 @code {
-    private class AuditItem
+    private List<KitchenAuditRecord> _audits = new();
+    private bool _loading = true;
+    private bool _showForm = false;
+    private bool _saving = false;
+
+    private long _newRestaurantId = 1;
+    private string _newComment = "";
+    private string _newTags = "Gluten-Free, Dairy-Free";
+
+    protected override async Task OnInitializedAsync() => await LoadAuditsAsync();
+
+    private async Task LoadAuditsAsync()
     {
-        public string RestaurantName { get; set; } = "";
-        public string Comment { get; set; } = "";
-        public string DateAgo { get; set; } = "";
-        public string[] Tags { get; set; } = Array.Empty<string>();
-        public int Upvotes { get; set; }
-        public bool HasUpvoted { get; set; }
+        _loading = true;
+        _audits = await AuditService.GetAuditsAsync();
+        _loading = false;
     }
 
-    private readonly List<AuditItem> _audits = new()
+    private async Task SubmitAuditAsync()
     {
-        new() {
-            RestaurantName = "Artisan Kitchen",
-            Comment = "Manager came out personally to double-check their dedicated corn fryer. Zero gluten reaction, amazing experience!",
-            DateAgo = "2 days ago",
-            Tags = new[] { "Celiac", "Gluten-Free", "Shellfish" },
-            Upvotes = 42,
-            HasUpvoted = false
-        },
-        new() {
-            RestaurantName = "Green Fork Bistro",
-            Comment = "Completely vegan prep line. No butter or dairy cross-contamination whatsoever. Super allergy-friendly staff.",
-            DateAgo = "5 days ago",
-            Tags = new[] { "Dairy-Free", "Vegan" },
-            Upvotes = 28,
-            HasUpvoted = false
-        }
-    };
+        if (string.IsNullOrWhiteSpace(_newComment)) return;
 
-    private void Upvote(AuditItem item)
+        _saving = true;
+        var restName = _newRestaurantId == 1 ? "Artisan Kitchen" : "Green Fork Bistro";
+        await AuditService.AddAuditAsync(_newRestaurantId, restName, _newComment, _newTags);
+
+        _newComment = "";
+        _showForm = false;
+        _saving = false;
+        await LoadAuditsAsync();
+    }
+
+    private async Task UpvoteAsync(KitchenAuditRecord audit)
     {
-        if (item.HasUpvoted)
-        {
-            item.Upvotes--;
-            item.HasUpvoted = false;
-        }
-        else
-        {
-            item.Upvotes++;
-            item.HasUpvoted = true;
-        }
+        await AuditService.UpvoteAsync(audit.Id, audit.Upvotes + 1);
+        await LoadAuditsAsync();
+    }
+
+    private async Task DeleteAuditAsync(KitchenAuditRecord audit)
+    {
+        await AuditService.SoftDeleteAsync(audit.Id);
+        await LoadAuditsAsync();
     }
 }

@@ -27,27 +27,61 @@
                     <span>←</span> Back to all restaurants
                 </button>
                 <h2 class="text-3xl font-extrabold tracking-tight text-slate-900">
-                    @(_restaurant?.Name ?? "Restaurant") Safe Menu
+                    @(_restaurant?.Name ?? "Loading...") Safe Menu
                 </h2>
             </div>
-            <div class="text-sm font-semibold text-slate-500">
-                Active filters: <span class="text-rose-600 font-bold">@string.Join(" + ", Profile.ActiveAllergens)</span>
+
+            <!-- Manager Mode Toggle for Live DB CRUD -->
+            <div class="flex items-center gap-4">
+                <button @onclick="() => _managerMode = !_managerMode"
+                        class="px-4 py-2 rounded-xl text-xs font-bold border transition cursor-pointer @(_managerMode ? "bg-amber-100 border-amber-300 text-amber-900" : "bg-white border-slate-200 text-slate-700 hover:bg-slate-100")">
+                    ⚙ @(_managerMode ? "Exit Kitchen Manager" : "Kitchen Manager (Add/Edit/Delete)")
+                </button>
             </div>
         </div>
 
-        <!-- 3-Column Desktop Grid with Sticky Sidebars -->
+        <!-- 3-Column Desktop Grid -->
         <div class="flex items-start gap-8">
-            
-            <!-- 1. Left Sidebar: Sticky Filter Controls -->
             <div class="sticky top-24 self-start">
                 <DietarySidebar />
             </div>
 
-            <!-- 2. Middle Content Grid (Scrolls Naturally) -->
             <div class="flex-1 min-w-0">
-                @if (_restaurant is not null)
+                @if (_loading)
+                {
+                    <div class="bg-white rounded-3xl p-12 text-center text-sm font-bold text-slate-400 border border-slate-200">
+                        Loading menu from Supabase PostgreSQL...
+                    </div>
+                }
+                else if (_restaurant is not null)
                 {
                     <RestaurantHero Restaurant="@_restaurant" />
+
+                    <!-- Kitchen Manager Form (Create Dish - POST) -->
+                    @if (_managerMode)
+                    {
+                        <div class="mt-6 bg-white p-6 rounded-3xl border-2 border-amber-300 shadow-xs space-y-4">
+                            <div class="flex items-center justify-between">
+                                <h3 class="font-bold text-sm text-slate-900 uppercase tracking-wider">+ Add New Dish to Database</h3>
+                                <span class="text-[11px] text-amber-700 font-semibold">Saves directly to Supabase</span>
+                            </div>
+                            <div class="grid grid-cols-3 gap-3">
+                                <input @bind="_newDishName" placeholder="Dish name (e.g., Garlic Herb Salmon)" class="px-3 py-2 rounded-xl border border-slate-200 text-xs outline-none" />
+                                <input @bind="_newDishPrice" type="number" min="0" placeholder="Price ($)" class="px-3 py-2 rounded-xl border border-slate-200 text-xs outline-none" />
+                                <select @bind="_newDishCategory" class="px-3 py-2 rounded-xl border border-slate-200 text-xs outline-none">
+                                    <option value="Starters">Starters</option>
+                                    <option value="Mains">Mains</option>
+                                </select>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <input @bind="_newDishDesc" placeholder="Description..." class="flex-1 px-3 py-2 rounded-xl border border-slate-200 text-xs outline-none" />
+                                <button @onclick="CreateDishAsync" disabled="@_saving"
+                                        class="px-5 py-2.5 rounded-xl bg-emerald-800 hover:bg-emerald-900 text-white font-bold text-xs cursor-pointer disabled:opacity-50">
+                                    @(_saving ? "Saving..." : "Save to Menu")
+                                </button>
+                            </div>
+                        </div>
+                    }
 
                     <!-- Category Filter Tabs -->
                     <div class="flex items-center justify-between mt-8 mb-6 border-b border-slate-200 pb-3">
@@ -72,28 +106,36 @@
                     <div class="grid grid-cols-3 gap-6">
                         @foreach (var dish in FilteredDishes)
                         {
-                            <DishCard Dish="@dish" />
+                            <div class="flex flex-col gap-2">
+                                <DishCard Dish="@dish" />
+                                @if (_managerMode)
+                                {
+                                    <div class="flex gap-2 bg-white p-2 rounded-2xl border border-slate-200 shadow-2xs">
+                                        <button @onclick="() => RaiseDishPriceAsync(dish)"
+                                                class="flex-1 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-xs font-bold text-slate-800 cursor-pointer">
+                                            +$2 Price
+                                        </button>
+                                        <button @onclick="() => SoftDeleteDishAsync(dish)"
+                                                class="flex-1 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-xs font-bold text-rose-700 cursor-pointer">
+                                            🗑 Soft Delete
+                                        </button>
+                                    </div>
+                                }
+                            </div>
                         }
                     </div>
 
                     <ConfidenceBanner />
-                    
-                    <footer class="mt-8 text-center text-xs text-slate-400">
-                        Protocols reviewed Oct 18, 2026 • Menu details can change. Confirm with your server.
-                    </footer>
                 }
             </div>
 
-            <!-- 3. Right Sidebar: Sticky Safe Plate & Kitchen Server Card -->
             <div class="w-80 shrink-0 sticky top-24 self-start space-y-6">
                 <SafePlatePanel />
                 <KitchenServerCard />
             </div>
-
         </div>
     </main>
 
-    <!-- Interactive Modals Suite -->
     <DishModificationModal />
     <DishDetailModal />
     <ServerCardModal />
@@ -104,43 +146,78 @@
 @code {
     [Parameter] public string Slug { get; set; } = "artisan-kitchen";
 
-    private Restaurant _restaurant = default!;
+    private Restaurant? _restaurant;
     private string _category = "All";
+    private bool _loading = true;
+    private bool _managerMode = false;
+    private bool _saving = false;
 
-    private IEnumerable<MenuItem> FilteredDishes
-    {
-        get
+    private string _newDishName = "";
+    private decimal _newDishPrice = 18;
+    private string _newDishCategory = "Mains";
+    private string _newDishDesc = "";
+
+    private IEnumerable<MenuItem> FilteredDishes => _restaurant is null
+        ? Enumerable.Empty<MenuItem>()
+        : _category switch
         {
-            if (_restaurant is null) return Enumerable.Empty<MenuItem>();
+            "Starters" => _restaurant.Menu.Where(d => d.Category == "Starters"),
+            "Mains" => _restaurant.Menu.Where(d => d.Category == "Mains"),
+            _ => _restaurant.Menu
+        };
 
-            return _category switch
-            {
-                "Starters" => _restaurant.Menu.Where(d => d.Price < 20),
-                "Mains" => _restaurant.Menu.Where(d => d.Price >= 20),
-                _ => _restaurant.Menu
-            };
-        }
-    }
-
-    protected override void OnParametersSet()
+    protected override async Task OnParametersSetAsync()
     {
-        var targetSlug = string.IsNullOrWhiteSpace(Slug) ? "artisan-kitchen" : Slug;
-        _restaurant = DataService.GetBySlug(targetSlug);
+        await LoadMenuAsync();
     }
 
     protected override void OnInitialized()
     {
-        // Pre-seed "Truffle Polenta" to match the Figma mockup on first load
-        var targetSlug = string.IsNullOrWhiteSpace(Slug) ? "artisan-kitchen" : Slug;
-        _restaurant = DataService.GetBySlug(targetSlug);
-        var firstDish = _restaurant.Menu.FirstOrDefault();
-        if (firstDish is not null && !PlateService.Items.Any())
-        {
-            PlateService.Add(firstDish);
-        }
-
         Profile.OnProfileChanged += StateHasChanged;
         Modals.OnModalChanged += StateHasChanged;
+    }
+
+    private async Task LoadMenuAsync()
+    {
+        _loading = true;
+        var targetSlug = string.IsNullOrWhiteSpace(Slug) ? "artisan-kitchen" : Slug;
+        _restaurant = await DataService.GetBySlugAsync(targetSlug);
+        _loading = false;
+    }
+
+    private async Task CreateDishAsync()
+    {
+        if (_restaurant is null || string.IsNullOrWhiteSpace(_newDishName)) return;
+
+        _saving = true;
+        await DataService.AddDishAsync(
+            _restaurant.DbId,
+            _newDishName,
+            string.IsNullOrWhiteSpace(_newDishDesc) ? "Freshly prepared dish." : _newDishDesc,
+            _newDishPrice,
+            _newDishCategory,
+            "",
+            true,
+            true,
+            ""
+        );
+        _newDishName = "";
+        _newDishDesc = "";
+        _saving = false;
+        await LoadMenuAsync();
+    }
+
+    private async Task RaiseDishPriceAsync(MenuItem dish)
+    {
+        await DataService.UpdateDishPriceAsync(dish.DbId, dish.Price + 2);
+        await LoadMenuAsync();
+    }
+
+    private async Task SoftDeleteDishAsync(MenuItem dish)
+    {
+        await DataService.SoftDeleteDishAsync(dish.DbId);
+        PlateService.Remove(dish);
+        await LoadMenuAsync();
     }
 
     public void Dispose()
