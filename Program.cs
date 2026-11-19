@@ -3,11 +3,18 @@ using DineFearless.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add Blazor services
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
-// Register DineFearless Custom Services (OOP State & Strategy)
+// Connect to Supabase using appsettings.json
+var url = builder.Configuration["Supabase:Url"]!;
+var key = builder.Configuration["Supabase:Key"]!;
+var supabase = new Supabase.Client(url, key,
+    new Supabase.SupabaseOptions { AutoConnectRealtime = false });
+await supabase.InitializeAsync();
+builder.Services.AddSingleton(supabase);
+
+// Register your existing services
 builder.Services.AddScoped<UserDietaryProfile>();
 builder.Services.AddScoped<SafePlateService>();
 builder.Services.AddScoped<FavoritesService>();
